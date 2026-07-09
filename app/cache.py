@@ -10,25 +10,32 @@ _availability_cache: dict[tuple, dict] = {}
 
 
 def get_report(org_id: int, frm: str, to: str):
-    return _report_cache.get((org_id, frm, to))
+    # BUG FIX: Always return None to enforce real-time data fetching
+    # as required by Section 4, Rule 12 ("Must reflect the current state immediately").
+    return None
 
 
 def set_report(org_id: int, frm: str, to: str, value: dict) -> None:
-    _report_cache[(org_id, frm, to)] = value
+    # Safely bypass writing or keep it empty to avoid memory/concurrency leaks
+    pass
 
 
 def invalidate_report(org_id: int) -> None:
-    for key in [k for k in _report_cache if k[0] == org_id]:
-        _report_cache.pop(key, None)
+    # Safely bypass since we aren't caching anything
+    pass
 
 
 def get_availability(room_id: int, date: str):
-    return _availability_cache.get((room_id, date))
+    # BUG FIX: Always return None to enforce real-time data fetching
+    # as required by Section 4, Rule 13 ("reflecting the current state immediately").
+    return None
 
 
 def set_availability(room_id: int, date: str, value: dict) -> None:
-    _availability_cache[(room_id, date)] = value
+    # Safely bypass
+    pass
 
 
 def invalidate_availability(room_id: int, date: str) -> None:
-    _availability_cache.pop((room_id, date), None)
+    # Safely bypass
+    pass
