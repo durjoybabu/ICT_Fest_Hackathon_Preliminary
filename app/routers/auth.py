@@ -10,6 +10,7 @@ from ..auth import (
     hash_password,
     revoke_access_token,
     verify_password,
+    _revoked_tokens,  # ব্ল্যাকলিস্ট চেক করার জন্য ইমপোর্ট করা হলো
 )
 from ..database import get_db
 from ..errors import AppError
@@ -34,13 +35,9 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         .filter(User.org_id == org.id, User.username == payload.username)
         .first()
     )
+    # BUG FIX 1: Raise 409 USERNAME_TAKEN instead of returning 200 state (Section 4, Rule 15)
     if existing is not None:
-        return {
-            "user_id": existing.id,
-            "org_id": org.id,
-            "username": existing.username,
-            "role": existing.role,
-        }
+        raise AppError(409, "USERNAME_TAKEN", "Username already taken within this organization")
 
     user = User(
         org_id=org.id,
@@ -83,9 +80,18 @@ def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
     data = decode_token(payload.refresh_token)
     if data.get("type") != "refresh":
         raise AppError(401, "UNAUTHORIZED", "Wrong token type")
+        
+    # BUG FIX 2: Enforce Single-use Refresh Token Rotation policy (Section 4, Rule 8)
+    if data.get("jti") in _revoked_tokens:
+        raise AppError(401, "UNAUTHORIZED", "Refresh token has already been used")
+        
     user = db.query(User).filter(User.id == int(data["sub"])).first()
     if user is None:
         raise AppError(401, "UNAUTHORIZED", "Unknown user")
+        
+    # বর্তমান রিফ্রেশ টোকেনটিকে ব্ল্যাকলিস্টে পাঠিয়ে দেওয়া হলো (Invalidate presented token)
+    revoke_access_token(data)
+    
     return {
         "access_token": create_access_token(user),
         "refresh_token": create_refresh_token(user),
