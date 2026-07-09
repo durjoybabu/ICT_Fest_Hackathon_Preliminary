@@ -1,4 +1,5 @@
 """Pydantic request/response models."""
+from datetime import datetime
 from pydantic import BaseModel, Field
 
 
@@ -26,5 +27,7 @@ class RoomCreateRequest(BaseModel):
 
 class BookingCreateRequest(BaseModel):
     room_id: int
-    start_time: str
-    end_time: str
+    # BUG FIX: Changed type from 'str' to 'datetime' to automatically validate and 
+    # parse ISO 8601 input strings into proper Python datetime objects for business logic.
+    start_time: datetime
+    end_time: datetime
