@@ -10,10 +10,17 @@ def parse_input_datetime(value: str) -> datetime:
     """
     dt = datetime.fromisoformat(value)
     if dt.tzinfo is not None:
-        dt = dt.replace(tzinfo=None)
+        # BUG FIX 1: Convert the datetime to the correct UTC timezone first, 
+        # then strip tzinfo for storage, satisfying Section 4, Rule 1.
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
     return dt
 
 
 def iso_utc(dt: datetime) -> str:
     """Render a stored (naive UTC) datetime with an explicit UTC designator."""
-    return dt.replace(tzinfo=timezone.utc).isoformat()
+    # BUG FIX 2: Replace Python's default '+00:00' with the explicit UTC designator 'Z'
+    # as strictly required by Section 4, Rule 1.
+    res = dt.replace(tzinfo=timezone.utc).isoformat()
+    if res.endswith("+00:00"):
+        res = res[:-6] + "Z"
+    return res
