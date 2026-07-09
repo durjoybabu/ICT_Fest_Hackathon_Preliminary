@@ -3,3 +3,11 @@ uvicorn[standard]==0.30.1
 SQLAlchemy==2.0.30
 pydantic==2.7.1
 PyJWT==2.8.0
+
+
+# inside Docker to handle continuous concurrent grading bursts safely.
+greenlet==3.0.3
+
+# BUG FIX 2 (Medium): Ensures strict standard compliance for parsing historical/future 
+# ISO 8601 zone offsets inside timeutils without OS-level timezone mismatches.
+python-dateutil==2.9.0.post0
