@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   api:
     build: .
@@ -5,9 +7,11 @@ services:
       - "8000:8000"
     environment:
       - JWT_SECRET=cowork-dev-secret-change-me
-      - DATABASE_URL=sqlite:////app/data/cowork.db
+      
+      - DATABASE_URL=sqlite:///cowork.db?timeout=30
     volumes:
-      - cowork-data:/app/data
+    
+      - cowork-data:/app
 
 volumes:
   cowork-data:
