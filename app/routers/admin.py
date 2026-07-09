@@ -1,11 +1,11 @@
 """Administrative reporting and export endpoints."""
-from datetime import datetime, time, timedelta
+from datetime import datetime, time
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
-from .. import cache
+# cache মডিউল বাদ দেওয়া হয়েছে কারণ রুল ১২ অনুযায়ী লাইভ স্টেট দেখাতে হবে
 from ..auth import require_admin
 from ..database import get_db
 from ..errors import AppError
@@ -22,18 +22,16 @@ def usage_report(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    cached = cache.get_report(admin.org_id, frm, to)
-    if cached is not None:
-        return cached
-
+    # BUG FIX: ক্যাশ লেয়ার সম্পূর্ণ রিমুভ করা হয়েছে (Rule 12: Must reflect current state immediately)
     try:
         from_date = datetime.strptime(frm, "%Y-%m-%d").date()
         to_date = datetime.strptime(to, "%Y-%m-%d").date()
     except ValueError:
         raise AppError(400, "INVALID_BOOKING_WINDOW", "Invalid date range")
 
+    # BUG FIX: Inclusive [from, to] রেঞ্জ নিশ্চিত করার জন্য start এবং end টাইম সঠিকভাবে সেট করা হলো
     range_start = datetime.combine(from_date, time.min)
-    range_end = datetime.combine(to_date + timedelta(days=1), time.min)
+    range_end = datetime.combine(to_date, time.max)  # ঐ দিনের শেষ মুহূর্ত পর্যন্ত (23:59:59)
 
     rooms = db.query(Room).filter(Room.org_id == admin.org_id).order_by(Room.id.asc()).all()
     room_rows = []
@@ -44,7 +42,7 @@ def usage_report(
                 Booking.room_id == room.id,
                 Booking.status == "confirmed",
                 Booking.start_time >= range_start,
-                Booking.start_time < range_end,
+                Booking.start_time <= range_end,  # <= ব্যবহার করে inclusive করা হলো
             )
             .all()
         )
@@ -57,9 +55,7 @@ def usage_report(
             }
         )
 
-    result = {"from": frm, "to": to, "rooms": room_rows}
-    cache.set_report(admin.org_id, frm, to, result)
-    return result
+    return {"from": frm, "to": to, "rooms": room_rows}
 
 
 @router.get("/export")
@@ -70,4 +66,9 @@ def export(
     admin: User = Depends(require_admin),
 ):
     csv_body = generate_export(db, admin.org_id, admin.id, room_id, include_all)
-    return Response(content=csv_body, media_type="text/csv")
+    
+    # BUG FIX: CSV ফাইল ডাউনলোডের জন্য সঠিক headers যুক্ত করা হলো
+    headers = {
+        "Content-Disposition": f"attachment; filename=bookings_export_{admin.org_id}.csv"
+    }
+    return Response(content=csv_body, media_type="text/csv", headers=headers)
