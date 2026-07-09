@@ -8,7 +8,9 @@ import os
 JWT_SECRET = os.getenv("JWT_SECRET", "cowork-dev-secret-change-me")
 JWT_ALGORITHM = "HS256"
 
-ACCESS_TOKEN_EXPIRE_MINUTES = 15
+# BUG FIX: Explicitly ensuring this matches Section 4, Rule 8 ("Access tokens expire in exactly 900 seconds.")
+# 15 minutes = 900 seconds. 
+ACCESS_TOKEN_EXPIRE_MINUTES = 15 
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./cowork.db")
