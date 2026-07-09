@@ -10,7 +10,7 @@ from ..auth import (
     hash_password,
     revoke_access_token,
     verify_password,
-    _revoked_tokens,  # ব্ল্যাকলিস্ট চেক করার জন্য ইমপোর্ট করা হলো
+    _revoked_tokens,ো
 )
 from ..database import get_db
 from ..errors import AppError
@@ -89,7 +89,7 @@ def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
     if user is None:
         raise AppError(401, "UNAUTHORIZED", "Unknown user")
         
-    # বর্তমান রিফ্রেশ টোকেনটিকে ব্ল্যাকলিস্টে পাঠিয়ে দেওয়া হলো (Invalidate presented token)
+    
     revoke_access_token(data)
     
     return {
