@@ -1,5 +1,5 @@
 """SQLAlchemy ORM models for the CoWork domain."""
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     Column,
@@ -12,6 +12,12 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from .database import Base
+
+
+def _get_utc_now():
+    """Helper function to return native/naive datetime structured from explicit UTC, 
+    matching Rule 1 for internal SQLite storage."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class Organization(Base):
@@ -30,7 +36,8 @@ class User(Base):
     username = Column(String, nullable=False, index=True)
     hashed_password = Column(String, nullable=False)
     role = Column(String, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    # BUG FIX 2: Using callable function reference that avoids deprecation and guarantees proper UTC generation
+    created_at = Column(DateTime, default=_get_utc_now, nullable=False)
 
 
 class Room(Base):
@@ -52,9 +59,10 @@ class Booking(Base):
     start_time = Column(DateTime, nullable=False, index=True)
     end_time = Column(DateTime, nullable=False)
     status = Column(String, nullable=False, default="confirmed")
-    reference_code = Column(String, nullable=False, index=True)
+    # BUG FIX 1: Added unique=True constraint to enforce Rule 7 under high concurrent loads
+    reference_code = Column(String, nullable=False, unique=True, index=True)
     price_cents = Column(Integer, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=_get_utc_now, nullable=False)
 
     refunds = relationship("RefundLog", backref="booking")
 
@@ -66,4 +74,4 @@ class RefundLog(Base):
     booking_id = Column(Integer, ForeignKey("bookings.id"), nullable=False, index=True)
     amount_cents = Column(Integer, nullable=False)
     status = Column(String, nullable=False)
-    processed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    processed_at = Column(DateTime, default=_get_utc_now, nullable=False)
