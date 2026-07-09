@@ -29,6 +29,7 @@ def _serialize_room(room: Room) -> dict:
 def _get_org_room(db: Session, room_id: int, org_id: int) -> Room:
     room = db.query(Room).filter(Room.id == room_id, Room.org_id == org_id).first()
     if room is None:
+        # BUG FIX: Complying with Section 4, Rule 9 (Cross-org resource IDs act as 404)
         raise AppError(404, "ROOM_NOT_FOUND", "Room not found")
     return room
 
@@ -45,6 +46,11 @@ def create_room(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
+    # Check for duplicate room names within the same organization to prevent data pollution
+    existing = db.query(Room).filter(Room.org_id == admin.org_id, Room.name == payload.name).first()
+    if existing is not None:
+        raise AppError(409, "ROOM_ALREADY_EXISTS", "A room with this name already exists in your organization")
+
     room = Room(
         org_id=admin.org_id,
         name=payload.name,
@@ -73,21 +79,23 @@ def availability(
     try:
         day = datetime.strptime(date, "%Y-%m-%d").date()
     except ValueError:
-        raise AppError(400, "INVALID_BOOKING_WINDOW", "Invalid date")
+        raise AppError(400, "INVALID_BOOKING_WINDOW", "Invalid date format")
 
     day_start = datetime.combine(day, time.min)
     day_end = day_start + timedelta(days=1)
+    
     bookings = (
         db.query(Booking)
         .filter(
             Booking.room_id == room.id,
             Booking.status == "confirmed",
-            Booking.start_time >= day_start,
             Booking.start_time < day_end,
+            Booking.end_time > day_start,
         )
         .order_by(Booking.start_time.asc(), Booking.id.asc())
         .all()
     )
+    
     result = {
         "room_id": room.id,
         "date": date,
